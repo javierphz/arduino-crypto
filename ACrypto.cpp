@@ -1,15 +1,15 @@
 /**
  * An extremely minimal crypto library for Arduino devices.
- * 
- * The SHA256 and AES implementations are derived from axTLS 
+ *
+ * The SHA256 and AES implementations are derived from axTLS
  * (http://axtls.sourceforge.net/), Copyright (c) 2008, Cameron Rich.
- * 
+ *
  * Ported and refactored by Chris Ellis 2016.
  * pkcs7 padding routines added by Mike Killewald Nov 26, 2017 (adopted from https://github.com/spaniakos/AES).
- * 
+ *
  */
 
-#include <Crypto.h>
+#include <ACrypto.h>
 
 /**
  * Byte order helpers
@@ -22,7 +22,7 @@ inline static uint16_t crypto_htons(uint16_t x)
 {
     return x;
 }
- 
+
 inline static uint16_t crypto_ntohs(uint16_t x)
 {
     return x;
@@ -43,15 +43,15 @@ inline static uint32_t crypto_ntohl(uint32_t x)
 inline static uint16_t crypto_htons(uint16_t x)
 {
     return (
-            ((x & 0xff)   << 8) | 
+            ((x & 0xff)   << 8) |
             ((x & 0xff00) >> 8)
            );
 }
- 
+
 inline static uint16_t crypto_ntohs(uint16_t x)
 {
     return (
-            ((x & 0xff)   << 8) | 
+            ((x & 0xff)   << 8) |
             ((x & 0xff00) >> 8)
            );
 }
@@ -59,9 +59,9 @@ inline static uint16_t crypto_ntohs(uint16_t x)
 inline static uint32_t crypto_htonl(uint32_t x)
 {
     return (
-            ((x & 0xff)         << 24) | 
-            ((x & 0xff00)       << 8)  | 
-            ((x & 0xff0000UL)   >> 8)  | 
+            ((x & 0xff)         << 24) |
+            ((x & 0xff00)       << 8)  |
+            ((x & 0xff0000UL)   >> 8)  |
             ((x & 0xff000000UL) >> 24)
            );
 }
@@ -69,9 +69,9 @@ inline static uint32_t crypto_htonl(uint32_t x)
 inline static uint32_t crypto_ntohl(uint32_t x)
 {
     return (
-            ((x & 0xff)         << 24) | 
-            ((x & 0xff00)       << 8)  | 
-            ((x & 0xff0000UL)   >> 8)  | 
+            ((x & 0xff)         << 24) |
+            ((x & 0xff00)       << 8)  |
+            ((x & 0xff0000UL)   >> 8)  |
             ((x & 0xff000000UL) >> 24)
            );
 }
@@ -88,10 +88,10 @@ inline static uint32_t crypto_ntohl(uint32_t x)
 
 #define PUT_UINT32(n,b,i)                       \
 {                                               \
-    (b)[(i)    ] = (byte) ((n) >> 24);       \
-    (b)[(i) + 1] = (byte) ((n) >> 16);       \
-    (b)[(i) + 2] = (byte) ((n) >>  8);       \
-    (b)[(i) + 3] = (byte) ((n)      );       \
+    (b)[(i)    ] = (byte) ((n) >> 24);          \
+    (b)[(i) + 1] = (byte) ((n) >> 16);          \
+    (b)[(i) + 2] = (byte) ((n) >>  8);          \
+    (b)[(i) + 3] = (byte) ((n)      );          \
 }
 
 static const byte sha256_padding[64] =
@@ -106,6 +106,11 @@ static const byte sha256_padding[64] =
  * Initialize the SHA256 hash
  */
 SHA256::SHA256()
+{
+    this->reset();
+}
+
+void SHA256::reset()
 {
     total[0] = 0;
     total[1] = 0;
@@ -154,7 +159,7 @@ void SHA256::SHA256_Process(const byte digest[64])
 #define F1(x,y,z) (z ^ (x & (y ^ z)))
 
 #define R(t)                                    \
-(                                              \
+(                                               \
     W[t] = S1(W[t -  2]) + W[t -  7] +          \
            S0(W[t - 15]) + W[t - 16]            \
 )
@@ -322,6 +327,7 @@ void SHA256::doFinal(byte *digest)
 #if defined ESP8266
     ESP.wdtFeed();
 #endif
+    this->reset(); // Reset the internals, so we can calculate the next hash!
 }
 
 bool SHA256::matches(const byte *expected)
@@ -345,7 +351,7 @@ bool SHA256::matches(const byte *expected)
 #define rot2(x) (((x) << 16) | ((x) >> 16))
 #define rot3(x) (((x) <<  8) | ((x) >> 24))
 
-/* 
+/*
  * This cute trick does 4 'mul by two' at once.  Stolen from
  * Dr B. R. Gladman <brg@gladman.uk.net> but I'm sure the u-(u>>7) is
  * a standard graphics trick
@@ -417,7 +423,7 @@ static const uint8_t aes_sbox[256] =
 /*
  * AES is-box
  */
-static const uint8_t aes_isbox[256] = 
+static const uint8_t aes_isbox[256] =
 {
     0x52,0x09,0x6a,0xd5,0x30,0x36,0xa5,0x38,
     0xbf,0x40,0xa3,0x9e,0x81,0xf3,0xd7,0xfb,
@@ -480,7 +486,7 @@ void AES::encrypt(uint32_t *data)
     uint32_t tmp[4];
     uint32_t tmp1, old_a0, a0, a1, a2, a3, row;
     int curr_rnd;
-    int rounds = _rounds; 
+    int rounds = _rounds;
     const uint32_t *k = _ks;
 
     /* Pre-round key addition */
@@ -495,7 +501,7 @@ void AES::encrypt(uint32_t *data)
         {
             a0 = (uint32_t)aes_sbox[(data[row%4]>>24)&0xFF];
             a1 = (uint32_t)aes_sbox[(data[(row+1)%4]>>16)&0xFF];
-            a2 = (uint32_t)aes_sbox[(data[(row+2)%4]>>8)&0xFF]; 
+            a2 = (uint32_t)aes_sbox[(data[(row+2)%4]>>8)&0xFF];
             a3 = (uint32_t)aes_sbox[(data[(row+3)%4])&0xFF];
 
             /* Perform MixColumn iff not last round */
@@ -513,7 +519,7 @@ void AES::encrypt(uint32_t *data)
         }
 
         /* KeyAddition - note that it is vital that this loop is separate from
-           the MixColumn operation, which must be atomic...*/ 
+           the MixColumn operation, which must be atomic...*/
         for (row = 0; row < 4; row++)
             data[row] = tmp[row] ^ *(k++);
     }
@@ -526,7 +532,7 @@ void AES::encrypt(uint32_t *data)
  * Decrypt a single block (16 bytes) of data
  */
 void AES::decrypt(uint32_t *data)
-{ 
+{
     uint32_t tmp[4];
     uint32_t xt0,xt1,xt2,xt3,xt4,xt5,xt6;
     uint32_t a0, a1, a2, a3, row;
@@ -553,7 +559,7 @@ void AES::decrypt(uint32_t *data)
             if (curr_rnd<(rounds-1))
             {
                 /* The MDS cofefficients (0x09, 0x0B, 0x0D, 0x0E)
-                   are quite large compared to encryption; this 
+                   are quite large compared to encryption; this
                    operation slows decryption down noticeably. */
                 xt0 = AES_xtime(a0^a1);
                 xt1 = AES_xtime(a1^a2);
@@ -584,7 +590,7 @@ void AES::decrypt(uint32_t *data)
 AES::AES(const uint8_t *key, const uint8_t *iv, AES_MODE mode, CIPHER_MODE cipherMode)
 {
     _cipherMode = cipherMode;
-    
+
     int i, ii;
     uint32_t *W, tmp, tmp2;
     const unsigned char *ip;
@@ -605,6 +611,7 @@ AES::AES(const uint8_t *key, const uint8_t *iv, AES_MODE mode, CIPHER_MODE ciphe
     _arr_pad[12] = 0x0d;
     _arr_pad[13] = 0x0e;
     _arr_pad[14] = 0x0f;
+    _arr_pad[15] = 0x10;
 
     switch (mode)
     {
@@ -668,7 +675,7 @@ AES::AES(const uint8_t *key, const uint8_t *iv, AES_MODE mode, CIPHER_MODE ciphe
 
     /* copy the iv across */
     memcpy(_iv, iv, 16);
-    
+
     /* Do we need to convert the key */
     if (_cipherMode == CIPHER_DECRYPT)
     {
@@ -691,7 +698,7 @@ void AES::setSize(int size)
 
 int AES::calcSizeAndPad(int in_size)
 {
-    in_size++; // +1 for null terminater on input string
+    //in_size++; // +1 for null terminater on input string
     int buf = round(in_size / AES_BLOCKSIZE) * AES_BLOCKSIZE;
     _size = (buf <= in_size) ? buf + AES_BLOCKSIZE : buf;
     _pad_size = _size - in_size;
@@ -707,8 +714,10 @@ void AES::padPlaintext(const uint8_t* in, uint8_t* out)
     }
 }
 
-bool AES::checkPad(uint8_t* in, int lsize)
+bool AES::checkPad(uint8_t* in, int lsize, int& insize)
 {
+
+#if 0 // old code
     if (in[lsize-1] <= 0x0f)
     {
         int lpad = (int)in[lsize-1];
@@ -719,12 +728,27 @@ bool AES::checkPad(uint8_t* in, int lsize)
                 return false;
             }
         }
-    } 
-    else 
+    }
+    else
     {
         return true;
     }
+
+#endif
+
+    if (in[lsize-1] > 0x10) return false;
+    int lpad = (int)in[lsize-1];
+
+    for (int i = lsize - 1; i >= lsize-lpad; i--) {
+        if (_arr_pad[lpad - 1] != in[i]) {
+            return false;
+        }
+    }
+
+    insize = lsize - lpad;
+
     return true;
+
 }
 
 void AES::processNoPad(const uint8_t *in, uint8_t *out, int length)
@@ -732,8 +756,8 @@ void AES::processNoPad(const uint8_t *in, uint8_t *out, int length)
     if (_cipherMode == CIPHER_ENCRYPT)
     {
         encryptCBC(in, out, length);
-    } 
-    else 
+    }
+    else
     {
         decryptCBC(in, out, length);
     }
@@ -747,8 +771,8 @@ void AES::process(const uint8_t *in, uint8_t *out, int length)
         uint8_t in_pad[getSize()];
         padPlaintext(in, in_pad);
         encryptCBC(in_pad, out, getSize());
-    } 
-    else 
+    }
+    else
     {
         decryptCBC(in, out, length);
     }
@@ -777,7 +801,7 @@ void AES::encryptCBC(const uint8_t *in, uint8_t *out, int length)
 
         for (i = 0; i < 4; i++)
         {
-            tout[i] = tin[i]; 
+            tout[i] = tin[i];
             out_32[i] = crypto_htonl(tout[i]);
         }
 
@@ -855,10 +879,10 @@ void AES::convertKey()
 #if defined ESP8266 || defined ESP32
 /**
  * ESP8266 and ESP32 specific hardware true random number generator.
- * 
- * Acording to the ESP32 documentation, you should not call the tRNG 
+ *
+ * Acording to the ESP32 documentation, you should not call the tRNG
  * faster than 5MHz
- * 
+ *
  */
 
 void RNG::fill(uint8_t *dst, unsigned int length)
